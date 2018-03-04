@@ -1,0 +1,131 @@
+---
+title: 'Peer-graded Assignment: Prediction Assignment Writeup (R)'
+author: "Mark"
+date: "March 4th 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Goal
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+# 1. Load packages and data
+
+```{r ex1, echo=TRUE}
+
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(RCurl)
+library(rpart)
+library(rpart.plot)
+library(e1071)
+
+set.seed(112358)
+
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training_data <- read.csv(text=getURL(train_url), na.strings=c("", "NA"))
+testing_data <- read.csv(text=getURL(test_url), na.strings=c("", "NA"))
+
+samples <- createDataPartition(y=training_data$classe, p=0.75, list=FALSE)
+train_data <- training_data[samples, ] 
+test_data <- training_data[-samples, ]
+
+```
+
+# 2. Exploratory data analysis (preparation and basic summary of the data)
+
+```{r ex2, echo=TRUE}
+
+# Current datasets:
+dim(train_data)
+dim(test_data)
+
+# Delete columns with missing values:
+training <- train_data [,colSums(is.na(train_data)) == 0]
+testing <- test_data [,colSums(is.na(test_data)) == 0]
+
+# Delete irrelevant variables: user_name, raw_timestamp_part_1, raw_timestamp_part_,2 cvtd_timestamp, new_window, and  num_window
+training2 <- training[,-c(1:7)]
+testing2 <- testing[,-c(1:7)]
+
+# New datasets:
+dim(training2)
+dim(testing2)
+
+#Plot of the outcome variable, frequency of each level in the training data set:
+plot(training2$classe, col="green", main="Frequency of each level of variable classe within training data set", xlab="Classe", ylab="Frequency")
+
+```
+
+
+# 3. Building a Classification Tree Model
+
+```{r ex3, echo=TRUE}
+
+# Building the Classification Tree:
+classtree <- rpart(classe ~ ., data=training2, method="class")
+
+# Predict using the test set:
+prediction_classtree <- predict(classtree, testing2, type = "class")
+
+# Plot of the Decision Tree:
+rpart.plot(classtree, main="Classification Tree", extra=100, under=TRUE, faclen=0)
+
+# Determine the accuracy of prediction:
+confusionMatrix(prediction_classtree, testing2$classe)
+
+```
+
+# 4. Building a Random Forest Model
+
+```{r ex4, echo=TRUE}
+
+# Building the model:
+model.rf <- randomForest(classe ~ ., data=training2)
+
+# Predict using the test set:
+predict.rf <- predict(model.rf, testing2)
+
+# Determine the accuracy of prediction:
+confusionMatrix(predict.rf, testing2$classe)
+
+```
+
+
+# 5. Testing the Final Model
+
+The Random Forest Model (Accuracy : 0.9955) performed better than the Classification Tree Model (Accuracy : 0.7382). We therefore choose the Random Forest Model (95% CI : (0.9932, 0.9972)). The expected out-of-sample error is 0.005, or 0.5%.
+
+This Random Forest Model will be used for the predicting the Training Data.
+
+```{r ex5, echo=TRUE}
+
+# Testing the Random Forest Model:
+
+predict_training <- predict(model.rf, testing_data, type="class")
+
+predict_training
+
+```
